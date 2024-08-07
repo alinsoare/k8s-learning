@@ -1,0 +1,64 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-data
+spec:
+  storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 2Gi
+  hostPath:
+    path: /data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: demo-remote-gradle-cache-pvc
+spec:
+  volumeName: pv-data
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-remote-gradle-cache-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.name: demo-remote-gradle-cache
+  template:
+    metadata:
+      labels:
+        app.name: demo-remote-gradle-cache
+    spec:
+      containers:
+        - name: demo-remote-gradle-cache
+          image: gradle/build-cache-node:19.1
+          imagePullPolicy: Always
+          args: [ "start" ]
+          ports:
+          - containerPort: 5071
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 0.5
+            limits:
+              memory: 2Gi
+              cpu: 1.5
+          env:
+          - name: EXCLUSIVE_VOLUME_SIZE
+            value: "2Gi"
+          volumeMounts:
+          - mountPath: /data
+            name: demo-remote-gradle-cache-pvc-volume
+      volumes:
+        - name: demo-remote-gradle-cache-pvc-volume
+          persistentVolumeClaim:
+            claimName: demo-remote-gradle-cache-pvc
